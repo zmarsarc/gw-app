@@ -1,0 +1,6 @@
+fastapi
+python-multipart
+uvicorn
+redis[hiredis]
+loguru
+pydantic-settings

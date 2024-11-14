@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  webapp:
+    image: jf/webapp
+    build: ./webapp
+    ports:
+      - "8000:80"
+    environment:
+      REDIS_HOST: redis-stack
+    depends_on:
+      - redis-stack
+
+  redis-stack:
+    image: redis:latest
+    ports:
+      # Use port 6900 to access redis from host.
+      - "6900:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
