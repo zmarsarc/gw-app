@@ -70,7 +70,7 @@ async def create_task(task: models.CreateInferenceTaskRequest, req: Request):
 
     task_id = str(uuid4())
     new_task = models.InferenceTask(
-        task_id=task_id, mid=task.mid, image_url=task.image_url)
+        task_id=task_id, mid=task.mid, image_url=task.image_url, callback=task.callback)
     try:
         await rdb.xadd(conf.task_stream_name, new_task.model_dump())
         logger.info(

@@ -14,8 +14,9 @@ class UploadImageResponse(APIResponse):
 
 
 class CreateInferenceTaskRequest(BaseModel):
-    mid: str  # means model_id, where model_ prefix is use by pydantic
+    mid: str  # means model_id, where prefix 'model_' is used by pydantic
     image_url: str
+    callback: str
 
 
 class CreateInferenceTaskResponse(APIResponse):
