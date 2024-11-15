@@ -21,7 +21,3 @@ class CreateInferenceTaskRequest(BaseModel):
 
 class CreateInferenceTaskResponse(APIResponse):
     task_id: str
-
-
-class InferenceTask(CreateInferenceTaskRequest):
-    task_id: str

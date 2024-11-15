@@ -1,4 +1,0 @@
-.venv
-.dockerignore
-Dockerfile
-__pycache__

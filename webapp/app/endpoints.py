@@ -4,7 +4,9 @@ import redis.asyncio as redis
 from fastapi import APIRouter, Request, UploadFile
 from loguru import logger
 
-from . import config, models
+import gw
+
+from . import models
 
 router = APIRouter()
 
@@ -13,8 +15,8 @@ def get_redis_connection(req: Request) -> redis.Redis:
     return req.app.state.redis_connection
 
 
-def get_global_config(req: Request) -> config.Config:
-    return req.app.state.conf
+def get_global_config(req: Request) -> gw.config.Config:
+    return req.app.state.global_config
 
 
 def get_filename_extension(filename: str) -> str:
@@ -24,7 +26,7 @@ def get_filename_extension(filename: str) -> str:
     return names[-1]
 
 
-def check_image_format_by_filename(name: str, conf: config.Config) -> bool:
+def check_image_format_by_filename(name: str, conf: gw.config.Config) -> bool:
     extension = get_filename_extension(name)
     if extension == '' or extension not in conf.allow_format:
         return False
@@ -44,8 +46,8 @@ async def upload_image(image: UploadFile, req: Request):
 
     extension = get_filename_extension(image.filename)
     uid = str(uuid4())
-    key = f"{conf.image_prefix}::{extension}::{uid}"
-    image_url = f"redis://{conf.redis_host}:{conf.redis_port}/{key}"
+    key = gw.make_image_key(uid, extension)
+    image_url = gw.make_image_url(uid, extension)
 
     data = await image.read()
     logger.info(f"upload image '{image.filename}', size {len(data)} bytes.")
@@ -69,8 +71,8 @@ async def create_task(task: models.CreateInferenceTaskRequest, req: Request):
     conf = get_global_config(req)
 
     task_id = str(uuid4())
-    new_task = models.InferenceTask(
-        task_id=task_id, mid=task.mid, image_url=task.image_url, callback=task.callback)
+    new_task = gw.InferenceTask.new(tid=task_id, mid=task.mid,
+                                    url=task.image_url, cb=task.callback)
     try:
         await rdb.xadd(conf.task_stream_name, new_task.model_dump())
         logger.info(

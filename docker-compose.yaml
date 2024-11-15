@@ -3,7 +3,9 @@ version: '3.8'
 services:
   webapp:
     image: jf/webapp
-    build: ./webapp
+    build:
+      context: .
+      dockerfile: docker/webapp.Dockerfile
     ports:
       - "8000:80"
     environment:
