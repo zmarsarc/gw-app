@@ -2,12 +2,22 @@ version: '3.8'
 
 services:
   webapp:
-    image: jf/webapp
+    image: gw/webapp
     build:
       context: .
       dockerfile: docker/webapp.Dockerfile
     ports:
       - "8000:80"
+    environment:
+      REDIS_HOST: redis-stack
+    depends_on:
+      - redis-stack
+
+  notifier:
+    image: gw/notifier
+    build:
+      context: .
+      dockerfile: docker/notifier.Dockerfile
     environment:
       REDIS_HOST: redis-stack
     depends_on:

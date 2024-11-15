@@ -1,5 +1,4 @@
 loguru
-requests
 pydantic
 pydantic-settings
 redis[hiredis]
