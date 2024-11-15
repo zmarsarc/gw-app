@@ -74,7 +74,7 @@ async def create_task(task: models.CreateInferenceTaskRequest, req: Request):
     new_task = gw.InferenceTask.new(tid=task_id, mid=task.mid,
                                     url=task.image_url, cb=task.callback)
     try:
-        await rdb.xadd(conf.task_stream_name, new_task.model_dump())
+        await rdb.xadd(conf.redis_keys.stream_task_create, new_task.model_dump())
         logger.info(
             f"send create new task message into stream, task: {new_task.model_dump()}")
     except redis.ConnectionError as e:
