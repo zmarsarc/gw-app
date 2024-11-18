@@ -4,19 +4,19 @@ import redis.asyncio as redis
 from fastapi import FastAPI
 from loguru import logger
 
-import gw.config
+import gw
 
 from . import endpoints
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    conf = gw.config.get_global_config()
-    logger.info(f"load global config: {conf.model_dump()}")
-    app.state.global_config = conf
+    conf = gw.get_app_settings()
+    logger.info(f"load app settings: {conf.model_dump()}")
+    app.state.app_settings = conf
 
-    rdb = redis.Redis(host=conf.redis_host,
-                      port=conf.redis_port, decode_responses=False)
+    rdb = redis.Redis(host=conf.redis.host,
+                      port=conf.redis.port, decode_responses=False)
     logger.info("connect redis")
     app.state.redis_connection = rdb
 

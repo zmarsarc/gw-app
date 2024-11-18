@@ -15,8 +15,8 @@ def get_redis_connection(req: Request) -> redis.Redis:
     return req.app.state.redis_connection
 
 
-def get_global_config(req: Request) -> gw.config.Config:
-    return req.app.state.global_config
+def get_global_config(req: Request) -> gw.AppSettings:
+    return req.app.state.app_settings
 
 
 def get_filename_extension(filename: str) -> str:
@@ -26,7 +26,7 @@ def get_filename_extension(filename: str) -> str:
     return names[-1]
 
 
-def check_image_format_by_filename(name: str, conf: gw.config.Config) -> bool:
+def check_image_format_by_filename(name: str, conf: gw.AppSettings) -> bool:
     extension = get_filename_extension(name)
     if extension == '' or extension not in conf.allow_format:
         return False
@@ -74,7 +74,7 @@ async def create_task(task: models.CreateInferenceTaskRequest, req: Request):
     new_task = gw.InferenceTask.new(tid=task_id, mid=task.mid,
                                     url=task.image_url, cb=task.callback)
     try:
-        await rdb.xadd(conf.redis_keys.stream_task_create, new_task.model_dump())
+        await rdb.xadd(conf.redis.s_task_create, new_task.model_dump())
         logger.info(
             f"send create new task message into stream, task: {new_task.model_dump()}")
     except redis.ConnectionError as e:

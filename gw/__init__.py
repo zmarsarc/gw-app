@@ -1,12 +1,12 @@
-from .config import Config, get_global_config
+from .settings import AppSettings, get_app_settings
 from .models import InferenceTask
 
 
 def make_image_key(uid: str, extension: str) -> str:
-    conf = get_global_config()
-    return f"{conf.image_prefix}::{extension}::{uid}"
+    conf = get_app_settings()
+    return f"{conf.redis.image_prefix}::{extension}::{uid}"
 
 
 def make_image_url(uid: str, extension: str) -> str:
-    conf = get_global_config()
-    return f"redis://{conf.redis_host}:{conf.redis_port}/{make_image_key(uid, extension)}"
+    conf = get_app_settings()
+    return f"redis://{conf.redis.host}:{conf.redis.port}/{make_image_key(uid, extension)}"
