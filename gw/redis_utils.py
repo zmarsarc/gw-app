@@ -1,11 +1,6 @@
 from typing import Any, Dict, List
 
-from pydantic import BaseModel
-
-
-class StreamMessage(BaseModel):
-    id: str
-    message: Dict[str, Any]
+from .models import StreamMessage
 
 
 def readgroup_response_to_dict(response: List[Any]) -> Dict[str, List[StreamMessage]]:

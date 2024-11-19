@@ -1,5 +1,6 @@
+from .message_handler import messagehandler
+from .models import InferenceTask, StreamMessage, TaskIdMessage
 from .settings import AppSettings, get_app_settings
-from .models import InferenceTask
 
 
 def make_image_key(uid: str, extension: str) -> str:

@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 from pydantic import BaseModel
 
 
@@ -13,3 +15,12 @@ class InferenceTask(BaseModel):
                              inference_model_id=mid,
                              image_url=url,
                              callback=cb)
+
+
+class TaskIdMessage(BaseModel):
+    id: str
+
+
+class StreamMessage(BaseModel):
+    id: str
+    message: Dict[str, Any]

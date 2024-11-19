@@ -23,6 +23,16 @@ services:
     depends_on:
       - redis-stack
 
+  dispatcher:
+    image: gw/dispatcher
+    build:
+      context: .
+      dockerfile: docker/dispatcher.Dockerfile
+    environment:
+      - REDIS_HOST=redis-stack
+    depends_on:
+      - redis-stack
+
   redis-stack:
     image: redis:latest
     ports:

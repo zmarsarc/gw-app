@@ -71,8 +71,7 @@ async def create_task(task: models.CreateInferenceTaskRequest, req: Request):
     conf = get_global_config(req)
 
     task_id = str(uuid4())
-    new_task = gw.InferenceTask.new(tid=task_id, mid=task.mid,
-                                    url=task.image_url, cb=task.callback)
+    new_task = gw.TaskIdMessage(id=task_id)
     try:
         await rdb.xadd(conf.redis.s_task_create, new_task.model_dump())
         logger.info(
