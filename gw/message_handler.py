@@ -116,7 +116,10 @@ def messagehandler(host: str, port: int,
 
     def decorator(func):
         def wrapper():
-            asyncio.run(message_handler_wrapper(
-                func, host, port, stream_name, group_name, consumer_name, min_idle_time, block))
+            return message_handler_wrapper(
+                func,
+                host, port,
+                stream_name, group_name, consumer_name,
+                min_idle_time, block)
         return wrapper
     return decorator

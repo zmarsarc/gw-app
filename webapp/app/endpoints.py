@@ -71,13 +71,19 @@ async def create_task(task: models.CreateInferenceTaskRequest, req: Request):
     conf = get_global_config(req)
 
     task_id = str(uuid4())
-    new_task = gw.TaskIdMessage(id=task_id)
+    new_task = gw.InferenceTask.new(
+        task_id, task.mid, task.image_url, task.callback)
+    key = gw.make_task_key(task_id)
     try:
-        await rdb.xadd(conf.redis.s_task_create, new_task.model_dump())
+        await rdb.set(key, new_task.model_dump_json(), ex=conf.task_lifetime_s)
+        logger.debug(
+            f"set task data {new_task.model_dump_json()} to key {key}, ttl {conf.task_lifetime_s}")
+        await rdb.xadd(conf.redis.s_task_create,
+                       gw.TaskIdMessage(id=task_id).model_dump())
         logger.info(
             f"send create new task message into stream, task: {new_task.model_dump()}")
     except redis.ConnectionError as e:
-        logger.error(f"send message to stream error, {str(e)}")
+        logger.error(f"create new task error, {str(e)}")
         return models.APIResponse(ok=models.REQUEST_ERR, message="redis connection error")
 
     return models.CreateInferenceTaskResponse(message="inference task created", task_id=task_id)

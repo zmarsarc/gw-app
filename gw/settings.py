@@ -11,6 +11,7 @@ class RedisSettings(BaseSettings):
     port: int = 6379
 
     image_prefix: str = "gw::image"
+    task_prefix: str = "gw::task"
 
     s_task_create: str = "gw::task::create"
     s_task_finish: str = "gw::task::finish"
@@ -23,10 +24,14 @@ class AppSettings(BaseSettings):
 
     redis: RedisSettings = RedisSettings()
 
-    image_lifetime_s: int = 30
     allow_format: Set[str] = {"png", "jpg", "jpeg"}
 
     pending_message_claim_time_ms: int = 30 * 1000
+
+    image_lifetime_s: int = 24 * 60 * 60
+    task_lifetime_s: int = 24 * 60 * 60
+
+    runner_slot_num: int = 10
 
 
 @lru_cache
