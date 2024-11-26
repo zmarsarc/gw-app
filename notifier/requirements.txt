@@ -2,3 +2,4 @@ loguru
 pydantic
 pydantic-settings
 redis[hiredis] >= 4.2.0
+requests >= 2.32.0

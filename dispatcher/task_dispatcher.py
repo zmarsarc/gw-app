@@ -1,5 +1,6 @@
+import signal
 import subprocess
-from threading import Event
+import threading
 from uuid import uuid1
 
 import redis
@@ -12,63 +13,95 @@ from gw.streams import Streams
 from gw.task import TaskPool
 
 
+# Use to fork runer process.
 class SubprocessStarter(WorkerStarter):
     def start_runner(self, name, model_id):
         subprocess.Popen(["python", "task_runner.py", name, model_id])
 
 
+def make_signal_handler(evt: threading.Event):
+    def handler(signum, frame):
+        evt.set()
+    return handler
+
+
 def main():
-    logger.info("start dispatcher...")
 
     settings = get_app_settings()
 
+    # Connect redis.
     rdb = redis.Redis(host=settings.redis_host,
                       port=settings.redis_port,
                       db=settings.redis_db)
-    logger.info(
-        f"connect to redis {settings.redis_port}:{settings.redis_port}, use db {settings.redis_db}")
+    logger.info(f"connect to redis {settings.redis_port}:{settings.redis_port}, " +
+                f"use db {settings.redis_db}")
 
-    taskpool = TaskPool(connection_pool=rdb.connection_pool,
+    # Connect task pool which use to read task data.
+    taskpool = TaskPool(rdb=rdb,
                         ttl=settings.task_lifetime_s)
-    logger.info(
-        f"connect task pool, task lifetime set to {settings.task_lifetime_s} second(s)")
+    logger.info("connect task pool, task lifetime set to ",
+                f"{settings.task_lifetime_s} second(s)")
 
+    # Initlize runner pool.
+    # We'll use subprocess to start new runner.
     starter = SubprocessStarter()
-    runnerpool = RunnerPool(
-        connection_pool=rdb.connection_pool, starter=starter)
+    runnerpool = RunnerPool(rdb=rdb, starter=starter)
     logger.info(f"connect runner pool, use {type(starter)} as starter.")
 
-    dispatcher = Dispatcher(connection_pool=rdb.connection_pool,
-                            runner_pool=runnerpool, max_runner=settings.runner_slot_num)
+    # Initlize dispatcher.
+    dispatcher = Dispatcher(rdb=rdb,
+                            runner_pool=runnerpool,
+                            max_runner=settings.runner_slot_num)
     logger.info(f"init dispatcher, max runner number {dispatcher.runner_num}")
 
-    task_create_stream = Streams(
-        connection_pool=rdb.connection_pool).task_create
-    consumer = str(uuid1())
-    logger.info(
-        f"use task create stream, stream name {task_create_stream.stream}, readgroup {task_create_stream.readgroup}, consumer {consumer}")
+    # Make consumer name to receive message.
+    # Recive task create messag from this stream.
+    consumer = f"{uuid1}::dispatcher::consumer"
+    task_create_stream = Streams(rdb=rdb).task_create
+    logger.info(f"use task create stream, stream name {task_create_stream.stream}, " +
+                f"readgroup {task_create_stream.readgroup}, consumer {consumer}")
 
-    stop_evt = Event()
+    # Make stop flag and register signal handler.
+    stop_evt = threading.Event()
+    signal.signal(signal.SIGTERM, make_signal_handler(stop_evt))
+    signal.signal(signal.SIGINT, make_signal_handler(stop_evt))
+
+    logger.info("start message loop.")
     while not stop_evt.is_set():
+
+        # Pull one message from stream, block 1000 ms,
+        # Which give use a chance to check if stop flag set.
         messages = task_create_stream.pull(consumer, count=1, block=1 * 1000)
+
+        # Ignore if no message come.
         if len(messages) == 0:
             continue
 
-        tid = messages[0].data["task_id"].decode()
+        msg = messages[0]
+        tid = msg.data["task_id"].decode()
+        logger.info(f"receive message {msg.id}, task id {tid}")
+
+        # Ignore if task invalid, but consume this message.
         task = taskpool.get(task_id=tid)
         if task is None:
-            logger.warning(f"task not exists, id {tid}")
-            messages[0].ack()
+            msg.ack()
             continue
 
+        # Then dispatch inference task.
         try:
             dispatcher.dispatch(task)
-            logger.info(
-                f"task dispatch, id {task.task_id}, use model {task.model_id}")
+            logger.info(f"task dispatch, id {task.task_id}, " +
+                        f"use model {task.model_id}")
             messages[0].ack()
         except:
+            # TODO: handle exceptions.
             pass
+
+    logger.info("stop message loop, cleanup...")
+    rdb.close()
 
 
 if __name__ == "__main__":
+    logger.info("start dispatcher app.")
     main()
+    logger.info("dispatcher app shutdown.")

@@ -18,6 +18,8 @@ class AppSettings(BaseSettings):
     task_lifetime_s: int = 24 * 60 * 60
 
     runner_slot_num: int = 10
+    runner_heartbeat_ttl_s: int = 60
+    runner_heartbeat_update_period_s: int = 30
 
 
 @lru_cache

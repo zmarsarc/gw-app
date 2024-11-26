@@ -82,7 +82,11 @@ class Runner:
         self.stream.publish(Message(cmd=Command.stop).model_dump())
 
     def run_task(self, tid: str):
-        self.stream.publish(Message(cmd=Command.task, data=tid.encode()).model_dump())
+        self.stream.publish(
+            Message(cmd=Command.task, data=tid.encode()).model_dump())
+
+    def update_heartbeat(self, dt: datetime, ttl: float):
+        self.redis_client.set(self.keys.heartbeat, dt.isoformat(), ex=ttl)
 
 
 class RunnerPool:
@@ -103,10 +107,12 @@ class RunnerPool:
         elif host and port and db:
             self._rdb = Redis(host=host, port=port, db=db)
         else:
-            raise ValueError("no valid redis connection provided for runner pool.")
+            raise ValueError(
+                "no valid redis connection provided for runner pool.")
 
         if starter is None:
-            raise ValueError("runner pool must have a woker starter, but actual none.")
+            raise ValueError(
+                "runner pool must have a woker starter, but actual none.")
         self._starter = starter
 
     def get(self, name: str) -> Optional[Runner]:
@@ -122,7 +128,8 @@ class RunnerPool:
         if ctime is None:
             ctime = datetime.now()
 
-        runner = Runner(rdb=Redis(connection_pool=self._rdb.connection_pool), name=name)
+        runner = Runner(
+            rdb=Redis(connection_pool=self._rdb.connection_pool), name=name)
 
         # Write runner metadata.
         self._rdb.hset(
