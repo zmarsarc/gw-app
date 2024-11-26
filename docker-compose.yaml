@@ -23,6 +23,16 @@ services:
     depends_on:
       - redis-stack
 
+  postprocess:
+    image: gw/postprocess
+    build:
+      context: .
+      dockerfile: docker/postprocess.Dockerfile
+    environment:
+      REDIS_HOST: redis-stack
+    depends_on:
+      - redis-stack
+
   dispatcher:
     image: gw/dispatcher
     build:

@@ -45,6 +45,18 @@ class Task:
     def callback(self) -> str:
         return self._rdb.hget(make_task_key(self.task_id), "callback").decode()
 
+    @property
+    def result(self) -> Optional[bytes]:
+        # TODO: move key to a public lib.
+        key = f"{self.task_id}::result::task::gw"
+        return self._rdb.get(key)
+
+    @result.setter
+    def result(self, data: bytes):
+        # TODO: move key to a public lib, make ex equal to the task key.
+        key = f"{self.task_id}::result::task::gw"
+        self._rdb.set(key, data, ex=DEFAULT_TASK_TTL_S)
+
 
 class TaskPool:
 

@@ -151,3 +151,19 @@ class Streams:
     @property
     def task_create(self) -> RedisStream:
         return RedisStream("task_create::stream::gw", "readgroup::task_create::stream::gw", connection_pool=self._rdb.connection_pool)
+
+    @property
+    def task_inference_complete(self) -> RedisStream:
+        return RedisStream(
+            stream="task_inference_complete::stream::gw",
+            readgroup="readgroup:task_inference_complete::stream::gw",
+            connection_pool=self._rdb.connection_pool
+        )
+
+    @property
+    def task_finish(self) -> RedisStream:
+        return RedisStream(
+            stream="task_finish::stream::gw",
+            readgroup="readgroup::task_finish::stream::gw",
+            connection_pool=self._rdb.connection_pool
+        )
