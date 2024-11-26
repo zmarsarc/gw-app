@@ -1,5 +1,4 @@
-redis[hiredis]
+redis[hiredis] >= 4.2.0
 loguru
 pydantic
 pydantic-settings
-requests
