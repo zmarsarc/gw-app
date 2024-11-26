@@ -1,5 +1,5 @@
 pytest>=8.3.0
-fakeredis=2.26.1
+fakeredis==2.26.1
 redis==5.2.0
 hiredis==3.0.0
 pydantic
