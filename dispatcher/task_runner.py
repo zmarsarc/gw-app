@@ -155,8 +155,11 @@ def main(name: str, model_id: str):
 
 
 if __name__ == "__main__":
+    from gw.utils import initlize_logger
 
     (name, model_id) = read_name_and_model_id_from_cli()
+
+    initlize_logger(f"runner-{name}")
 
     logger.info(f"start new runner by name {name}, model_id {model_id}")
     main(name, model_id)

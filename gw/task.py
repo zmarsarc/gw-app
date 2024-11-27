@@ -1,13 +1,12 @@
 from typing import Optional
-from uuid import uuid4
-
+from .utils import generate_a_random_hex_str
 from redis import ConnectionPool, Redis
 
 DEFAULT_TASK_TTL_S = 24 * 60 * 60
-
+TASK_ID_LENGTH = 16
 
 def make_task_key(tid: str) -> str:
-    return f"gw::task::{tid}"
+    return f"{tid}::task::gw"
 
 
 class Task:
@@ -72,7 +71,7 @@ class TaskPool:
 
     def new(self, model_id: str, image_url: str, post_process: str, callback: str, task_id: str = None) -> Task:
         if task_id is None:
-            task_id = str(uuid4())
+            task_id = generate_a_random_hex_str(TASK_ID_LENGTH)
         self._rdb.hset(make_task_key(task_id), mapping={
             "task_id": task_id,
             "model_id": model_id,

@@ -1,7 +1,6 @@
 import json
 import signal
 import threading
-from uuid import uuid1
 
 import redis
 import requests
@@ -10,6 +9,7 @@ from loguru import logger
 from gw.settings import get_app_settings
 from gw.streams import Streams
 from gw.task import TaskPool
+from gw.utils import generate_a_random_hex_str
 
 
 def make_signal_handler(evt: threading.Event):
@@ -37,7 +37,7 @@ def main():
 
     # Connect stream. receive message from task finish stream.
     # Make a unique consumer name.
-    consumer = f"{str(uuid1())}::notifier::consumer"
+    consumer = f"{generate_a_random_hex_str(length=8)}::notifier::consumer"
     stream = Streams(connection_pool=rdb.connection_pool).task_finish
     logger.info(f"use stream {stream.stream} receive message, readgroup {stream.readgroup}, " +
                 f"consumer name {consumer}")

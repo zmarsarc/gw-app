@@ -1,7 +1,6 @@
 import multiprocessing
 import signal
 import threading
-from uuid import uuid1
 
 import redis
 from loguru import logger
@@ -9,6 +8,7 @@ from loguru import logger
 from gw.settings import get_app_settings
 from gw.streams import RedisStream, Streams
 from gw.task import Task, TaskPool
+from gw.utils import generate_a_random_hex_str
 
 
 def make_signal_handler(evt: threading.Event):
@@ -53,7 +53,7 @@ def main():
     # Connect message streams, and make a consumer name.
     # in stream use to pull message from runner to notify that inference complete.
     # out stream use to send postprocess complete message to next step,
-    consumer = f"{str(uuid1())}::postprocess::consumer"
+    consumer = f"{generate_a_random_hex_str(length=8)}::postprocess::consumer"
     streams_maker = Streams(connection_pool=rdb.connection_pool)
     in_stream = streams_maker.task_inference_complete
     out_stream = streams_maker.task_finish

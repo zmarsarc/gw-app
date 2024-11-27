@@ -1,7 +1,6 @@
 import signal
 import subprocess
 import threading
-from uuid import uuid1
 
 import redis
 from loguru import logger
@@ -11,6 +10,7 @@ from gw.runner import RunnerPool, WorkerStarter
 from gw.settings import get_app_settings
 from gw.streams import Streams
 from gw.task import TaskPool
+from gw.utils import generate_a_random_hex_str
 
 
 # Use to fork runer process.
@@ -56,7 +56,7 @@ def main():
 
     # Make consumer name to receive message.
     # Recive task create messag from this stream.
-    consumer = f"{str(uuid1())}::dispatcher::consumer"
+    consumer = f"{generate_a_random_hex_str(length=8)}::dispatcher::consumer"
     task_create_stream = Streams(rdb=rdb).task_create
     logger.info(f"use task create stream, stream name {task_create_stream.stream}, " +
                 f"readgroup {task_create_stream.readgroup}, consumer {consumer}")
@@ -102,6 +102,10 @@ def main():
 
 
 if __name__ == "__main__":
+    from gw.utils import initlize_logger
+
+    initlize_logger("dispatcher")
+
     logger.info("start dispatcher app.")
     main()
     logger.info("dispatcher app shutdown.")
