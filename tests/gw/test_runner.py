@@ -170,6 +170,7 @@ def test_clean_dead_runner(fake_redis_client):
     assert int(fake_redis_client.exists(r.keys.heartbeat)) == 0
     assert int(fake_redis_client.exists(r.keys.stream)) == 0
 
+
 def test_update_and_clean_heartbeat(fake_redis_client):
     pool = RunnerPool(rdb=fake_redis_client, starter=DumbWorkerStarter())
     r = pool.new("test_model")

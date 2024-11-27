@@ -1,13 +1,13 @@
-import multiprocessing
 import signal
 import threading
+from concurrent.futures import ProcessPoolExecutor
 
 import redis
 from loguru import logger
 
 from gw.settings import get_app_settings
-from gw.streams import RedisStream, Streams
-from gw.task import Task, TaskPool
+from gw.streams import Streams
+from gw.task import TaskPool
 from gw.utils import generate_a_random_hex_str
 
 
@@ -17,17 +17,49 @@ def make_signal_handler(evt: threading.Event):
     return handler
 
 
-def postprocess_worker(task: Task, stream: RedisStream):
-    # TODO: do post process, set result in task then send notification to stream.
+# NOTE: This worker funcion will run in a subprocess
+#       Arguments provided to this func must be serializable
+def postprocess_worker(tid: str):
 
+    import json
+    import os
+    import signal
+    import sys
+    import time
+    from multiprocessing import current_process
+
+    import redis
+
+    from gw.settings import get_app_settings
+    from gw.streams import Streams
+    from gw.task import TaskPool
+    from gw.utils import initlize_logger
+
+    initlize_logger(f"postprocess_worker-{current_process().pid}")
+    logger.info(f"post process worker {current_process().pid} start.")
+
+    # Because this run in a new process.
+    # So need to connect redis and initlize task pool and stream.
+    rdb = redis.Redis(
+        host=get_app_settings().redis_host,
+        port=get_app_settings().redis_port,
+        db=get_app_settings().redis_db,
+    )
+    taskpool = TaskPool(rdb=rdb)
+    stream = Streams(rdb=rdb).task_finish
+
+    # For signal, just exit process.
+    signal.signal(signal.SIGTERM, lambda: sys.exit(0))
+    signal.signal(signal.SIGINT, lambda: sys.exit(0))
+
+    # Read task data.
+    task = taskpool.get(tid)
+
+    # TODO: For test propuse, block some time.
     # Let's just assume it need 1 seconds to do post process.
     # Then set result and notify next.
-    import json
-    import time
-    import os
-
-    # NOTE: For test propuse, block some time.
     blocking_time = int(os.environ.get("TEST_BLOCK_TIME", "1"))
+    logger.debug(f"blocking time {blocking_time}")
     time.sleep(blocking_time)
 
     task.result = json.dumps({
@@ -36,6 +68,9 @@ def postprocess_worker(task: Task, stream: RedisStream):
         "result": "postprocess ok, task complete."
     }).encode()
     stream.publish({"task_id": task.task_id})
+    logger.info("postprocess complete, notify.")
+
+    rdb.close()
 
 
 def main():
@@ -65,11 +100,12 @@ def main():
     taskpool = TaskPool(connection_pool=rdb.connection_pool)
 
     # Make process pool to run postprocess, assume postprocess need lot of CPU.
-    workerpool = multiprocessing.Pool()
+    workerpool = ProcessPoolExecutor()
 
     # Make stop flag and register signal handler.
     stop_flag = threading.Event()
     signal.signal(signal.SIGTERM, make_signal_handler(stop_flag))
+    signal.signal(signal.SIGINT, make_signal_handler(stop_flag))
 
     logger.info("register signal handler and start message loop.")
     while not stop_flag.is_set():
@@ -97,22 +133,22 @@ def main():
         # Put task into postprocess worker pool
         # Argument stream use to send notification when postprocess down.
         # No return value.
-        # workerpool.apply_async(func=postprocess_worker,
-        #                        args=(task, out_stream))
-        #
-        # FIXME: some issue here make process pool not work,
-        postprocess_worker(task, out_stream)
+        workerpool.submit(postprocess_worker, task.task_id)
         msg.ack()
+        logger.debug("post process submit to a worker.")
 
     # Clean worker pool, terminate all working process.
     # Any unfinished post process will be drop.
     logger.info("recieve stop signal, cleanup...")
-    workerpool.terminate()
-    workerpool.join()
+    workerpool.shutdown(cancel_futures=True)
     rdb.close()
 
 
 if __name__ == "__main__":
+    from gw.utils import initlize_logger
+
+    initlize_logger("postprocess")
+
     logger.info("start post process app...")
     main()
     logger.info("post process app shutdown.")
