@@ -1,14 +1,57 @@
+from abc import ABC, abstractmethod
 from datetime import datetime
+from enum import StrEnum
 from typing import List, Optional
 
 from loguru import logger
+from pydantic import BaseModel
 from redis import ConnectionPool, Redis
 
-from ..streams import RedisStream
-from ..utils import generate_a_random_hex_str
-from .common import Command, Keys, Message, WorkerStarter
+from .streams import RedisStream
+from .utils import generate_a_random_hex_str
 
 RUNNER_ID_LENGTH = 4
+
+
+class WorkerStarter(ABC):
+
+    @abstractmethod
+    def start_runner(self, name: str, model_id: str):
+        pass
+
+
+class Keys:
+
+    suffix: str = "gw::runner"
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def base(self) -> str:
+        return f"{self._name}::{self.suffix}"
+
+    @property
+    def heartbeat(self) -> str:
+        return f"{self.base}::heartbeat"
+
+    @property
+    def stream(self) -> str:
+        return f"{self.base}::stream"
+
+    @property
+    def readgroup(self) -> str:
+        return f"{self.base}::readgroup"
+
+
+class Command(StrEnum):
+    stop = "stop"
+    task = "task"
+
+
+class Message(BaseModel):
+    cmd: Command
+    data: bytes = bytes()
 
 
 class Runner:
@@ -99,7 +142,7 @@ class Runner:
 
     def update_heartbeat(self, dt: datetime, ttl: float):
         self.redis_client.set(self.keys.heartbeat, dt.isoformat(), ex=ttl)
-    
+
     def clean_heartbeat(self):
         self.redis_client.delete(self.keys.heartbeat)
 
