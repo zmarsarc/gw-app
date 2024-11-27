@@ -30,6 +30,7 @@ services:
       dockerfile: docker/postprocess.Dockerfile
     environment:
       REDIS_HOST: redis-stack
+      TEST_BLOCK_TIME: 1
     depends_on:
       - redis-stack
 
@@ -40,6 +41,7 @@ services:
       dockerfile: docker/dispatcher.Dockerfile
     environment:
       - REDIS_HOST=redis-stack
+      - TEST_BLOCK_TIME=1
     depends_on:
       - redis-stack
 

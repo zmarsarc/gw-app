@@ -20,12 +20,16 @@ def make_signal_handler(evt: threading.Event):
 def postprocess_worker(task: Task, stream: RedisStream):
     # TODO: do post process, set result in task then send notification to stream.
 
-    # Let's just assume it need 10 seconds to do post process.
+    # Let's just assume it need 1 seconds to do post process.
     # Then set result and notify next.
     import json
     import time
+    import os
 
-    time.sleep(10)
+    # NOTE: For test propuse, block some time.
+    blocking_time = int(os.environ.get("TEST_BLOCK_TIME", "1"))
+    time.sleep(blocking_time)
+
     task.result = json.dumps({
         "image": task.image_url,
         "postprocess": task.post_process,
@@ -49,7 +53,7 @@ def main():
     # Connect message streams, and make a consumer name.
     # in stream use to pull message from runner to notify that inference complete.
     # out stream use to send postprocess complete message to next step,
-    consumer = f"{uuid1}::postprocess::consumer"
+    consumer = f"{str(uuid1())}::postprocess::consumer"
     streams_maker = Streams(connection_pool=rdb.connection_pool)
     in_stream = streams_maker.task_inference_complete
     out_stream = streams_maker.task_finish
@@ -93,8 +97,11 @@ def main():
         # Put task into postprocess worker pool
         # Argument stream use to send notification when postprocess down.
         # No return value.
-        workerpool.apply_async(func=postprocess_worker,
-                               args=(task, out_stream))
+        # workerpool.apply_async(func=postprocess_worker,
+        #                        args=(task, out_stream))
+        #
+        # FIXME: some issue here make process pool not work,
+        postprocess_worker(task, out_stream)
         msg.ack()
 
     # Clean worker pool, terminate all working process.

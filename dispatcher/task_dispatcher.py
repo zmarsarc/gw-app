@@ -56,7 +56,7 @@ def main():
 
     # Make consumer name to receive message.
     # Recive task create messag from this stream.
-    consumer = f"{uuid1}::dispatcher::consumer"
+    consumer = f"{str(uuid1())}::dispatcher::consumer"
     task_create_stream = Streams(rdb=rdb).task_create
     logger.info(f"use task create stream, stream name {task_create_stream.stream}, " +
                 f"readgroup {task_create_stream.readgroup}, consumer {consumer}")

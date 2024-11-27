@@ -37,7 +37,7 @@ def main():
 
     # Connect stream. receive message from task finish stream.
     # Make a unique consumer name.
-    consumer = f"{uuid1()}::notifier::consumer"
+    consumer = f"{str(uuid1())}::notifier::consumer"
     stream = Streams(connection_pool=rdb.connection_pool).task_finish
     logger.info(f"use stream {stream.stream} receive message, readgroup {stream.readgroup}, " +
                 f"consumer name {consumer}")
@@ -71,9 +71,16 @@ def main():
             continue
 
         # TODO: need to fit GW API spec.
-        resp = requests.post(task.callback, json={
-            "result": json.loads(task.result)
-        })
+        try:
+            resp = requests.post(task.callback, json={
+                "result": json.loads(task.result)
+            })
+        except requests.exceptions.InvalidURL as e:
+            logger.error(f"invalid url: {e}")
+            # TODO: task have a invalid callback url, what should do ?
+            msg.ack()
+            continue
+
         if resp.status_code == 200:
             logger.info(f"call {task.callback} send result.")
             msg.ack()
