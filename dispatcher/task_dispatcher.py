@@ -88,13 +88,16 @@ def main():
             continue
 
         # Then dispatch inference task.
+        # Clean up dead runner before dispatch task.
         try:
+            runnerpool.clean_dead_runners()
             dispatcher.dispatch(task)
             logger.info(f"task dispatch, id {task.task_id}, " +
                         f"use model {task.model_id}")
-            messages[0].ack()
-        except:
+            msg.ack()
+        except Exception as e:
             # TODO: handle exceptions.
+            logger.error(f"dispatch failed, {e}")
             pass
 
     logger.info("stop message loop, cleanup...")

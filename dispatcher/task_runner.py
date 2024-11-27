@@ -56,6 +56,7 @@ def main(name: str, model_id: str):
     # We assume runner data already exists in redis and it always exists.
     # it promised by dispatcher.
     runner = Runner(rdb=rdb, name=name)
+    runner.is_alive = True
 
     # Connect stream, which use to notify that inference complete.
     complete_stream = Streams(rdb=rdb).task_inference_complete
@@ -132,6 +133,7 @@ def main(name: str, model_id: str):
             import os
 
             blocking_time = int(os.environ.get("TEST_BLOCK_TIME", "30"))
+            logger.debug(f"blocking time {blocking_time} secnods.")
             time.sleep(blocking_time)
             # FIXME: put inference result into redis.
 
@@ -144,23 +146,35 @@ def main(name: str, model_id: str):
             runner.task = None
             runner.is_busy = False
 
+            continue
+
         # Command is stop, set stop flag.
         if cmd.cmd == Command.stop:
             logger.info("recieve stop command, stop message loop.")
             stop_flag.set()
             msg.ack()
+            break
 
+    # Do cleanup.
+    # Delete heartbeat to notify runner exit.
+    # Set exit flag
     logger.info("message loop stopped, cleanup...")
+    runner.clean_heartbeat()
+    runner.is_alive = False
     rdb.close()
 
 
 if __name__ == "__main__":
+    from multiprocessing import current_process
+
     from gw.utils import initlize_logger
 
     (name, model_id) = read_name_and_model_id_from_cli()
 
     initlize_logger(f"runner-{name}")
 
-    logger.info(f"start new runner by name {name}, model_id {model_id}")
+    logger.info(f"start new runner by name [{name}], " +
+                f"model_id [{model_id}], " +
+                f"pid [{current_process().pid}]")
     main(name, model_id)
     logger.info(f"runner {name} shutdown.")
