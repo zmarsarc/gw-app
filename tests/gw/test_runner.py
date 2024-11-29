@@ -33,6 +33,7 @@ def test_new_runner(fake_redis_client):
     assert runner.is_busy == False
     assert runner.task == None
     assert runner.heartbeat == None
+    assert runner.is_alive == False
 
 
 def test_get_runner(fake_redis_client):
@@ -142,3 +143,43 @@ def test_runner_stream_and_readgroup(fake_redis_client):
 
     pool.delete(runner.name)
     assert int(fake_redis_client.exists(runner.keys.stream)) == 0
+
+
+def test_runner_alive_status(fake_redis_client):
+    pool = RunnerPool(rdb=fake_redis_client, starter=DumbWorkerStarter())
+    r = pool.new("model")
+
+    assert r.is_alive == False
+
+    r.is_alive = True
+    assert int(fake_redis_client.hget(r.keys.base, "is_alive")) == 1
+    assert r.is_alive == True
+
+    r.is_alive = False
+    assert int(fake_redis_client.hget(r.keys.base, "is_alive")) == 0
+    assert r.is_alive == False
+
+
+def test_clean_dead_runner(fake_redis_client):
+    pool = RunnerPool(rdb=fake_redis_client, starter=DumbWorkerStarter())
+
+    r = pool.new("test_clean_runner")
+    pool.clean_dead_runners()
+
+    assert int(fake_redis_client.exists(r.keys.base)) == 0
+    assert int(fake_redis_client.exists(r.keys.heartbeat)) == 0
+    assert int(fake_redis_client.exists(r.keys.stream)) == 0
+
+
+def test_update_and_clean_heartbeat(fake_redis_client):
+    pool = RunnerPool(rdb=fake_redis_client, starter=DumbWorkerStarter())
+    r = pool.new("test_model")
+
+    assert r.heartbeat == None
+
+    dt = datetime.now()
+    r.update_heartbeat(dt, ttl=100)
+    assert r.heartbeat == dt
+
+    r.clean_heartbeat()
+    assert r.heartbeat == None

@@ -37,3 +37,13 @@ def test_del_task(fake_redis_client):
 
     pool.delete("task_id")
     assert pool.get("task_id") is None
+
+
+def test_task_result(fake_redis_client):
+    pool = TaskPool(rdb=fake_redis_client)
+    task = pool.new("model", "image", "postprocess", "callback", "task_id")
+
+    assert task.result is None
+    
+    task.result = "result".encode()
+    assert task.result.decode()  == "result"
