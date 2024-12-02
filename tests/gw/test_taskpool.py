@@ -1,8 +1,8 @@
-from gw.task import Task, TaskPool
+from gw.tasks import TaskPool
 
 
 def test_new_task(fake_redis_client):
-    pool = TaskPool(rdb=fake_redis_client)
+    pool = TaskPool(connection_pool=fake_redis_client.connection_pool)
     task = pool.new(model_id="model", image_url="image", post_process="postprocess", callback="callback", task_id="task")
 
     assert task.task_id == "task"
@@ -13,7 +13,7 @@ def test_new_task(fake_redis_client):
 
 
 def test_get_task(fake_redis_client):
-    pool = TaskPool(rdb=fake_redis_client)
+    pool = TaskPool(connection_pool=fake_redis_client.connection_pool)
     tid = "abc"
 
     assert pool.get(tid) == None
@@ -30,7 +30,7 @@ def test_get_task(fake_redis_client):
 
 
 def test_del_task(fake_redis_client):
-    pool = TaskPool(rdb = fake_redis_client)
+    pool = TaskPool(connection_pool=fake_redis_client.connection_pool)
     
     pool.new("model", "image", "postprocess", "callback", "task_id")
     assert pool.get("task_id") is not None
@@ -39,11 +39,11 @@ def test_del_task(fake_redis_client):
     assert pool.get("task_id") is None
 
 
-def test_task_result(fake_redis_client):
-    pool = TaskPool(rdb=fake_redis_client)
+def test_task_inference_result(fake_redis_client):
+    pool = TaskPool(connection_pool=fake_redis_client.connection_pool)
     task = pool.new("model", "image", "postprocess", "callback", "task_id")
 
-    assert task.result is None
+    assert task.inference_result is None
     
-    task.result = "result".encode()
-    assert task.result.decode()  == "result"
+    task.inference_result = "result"
+    assert task.inference_result  == "result"

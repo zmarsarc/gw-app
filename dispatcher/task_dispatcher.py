@@ -9,7 +9,7 @@ from gw.dispatcher import Dispatcher
 from gw.runner import RunnerPool, WorkerStarter
 from gw.settings import get_app_settings
 from gw.streams import Streams
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 from gw.utils import generate_a_random_hex_str
 
 
@@ -37,8 +37,8 @@ def main():
                 f"use db {settings.redis_db}")
 
     # Connect task pool which use to read task data.
-    taskpool = TaskPool(rdb=rdb,
-                        ttl=settings.task_lifetime_s)
+    taskpool = TaskPool(connection_pool=rdb.connection_pool,
+                        task_ttl=settings.task_lifetime_s)
     logger.info("connect task pool, task lifetime set to ",
                 f"{settings.task_lifetime_s} second(s)")
 

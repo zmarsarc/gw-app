@@ -7,7 +7,7 @@ from loguru import logger
 
 from gw.settings import get_app_settings
 from gw.streams import Streams
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 from gw.utils import generate_a_random_hex_str
 
 
@@ -32,7 +32,7 @@ def postprocess_worker(tid: str):
 
     from gw.settings import get_app_settings
     from gw.streams import Streams
-    from gw.task import TaskPool
+    from gw.tasks import TaskPool
     from gw.utils import initlize_logger
 
     initlize_logger(f"postprocess_worker-{current_process().pid}")
@@ -45,7 +45,7 @@ def postprocess_worker(tid: str):
         port=get_app_settings().redis_port,
         db=get_app_settings().redis_db,
     )
-    taskpool = TaskPool(rdb=rdb)
+    taskpool = TaskPool(connection_pool=rdb.connection_pool)
     stream = Streams(rdb=rdb).task_finish
 
     # For signal, just exit process.
@@ -62,11 +62,11 @@ def postprocess_worker(tid: str):
     logger.debug(f"blocking time {blocking_time}")
     time.sleep(blocking_time)
 
-    task.result = json.dumps({
+    task.postprocess_result = json.dumps({
         "image": task.image_url,
         "postprocess": task.post_process,
         "result": "postprocess ok, task complete."
-    }).encode()
+    })
     stream.publish({"task_id": task.task_id})
     logger.info("postprocess complete, notify.")
 

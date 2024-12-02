@@ -1,7 +1,7 @@
 import signal
 import threading
-import time
 from datetime import datetime
+from os import path
 
 import redis
 from loguru import logger
@@ -9,7 +9,8 @@ from loguru import logger
 from gw.runner import Command, Message, Runner
 from gw.settings import get_app_settings
 from gw.streams import Streams
-from gw.task import TaskPool
+from gw.tasks import TaskPool
+from gwmodel import gwmodel
 
 
 def read_name_and_model_id_from_cli():
@@ -67,7 +68,7 @@ def main(name: str, model_id: str):
     logger.info(f"receive runner command use name {consumer}")
 
     # Connect task pool.
-    taskpool = TaskPool(rdb=rdb)
+    taskpool = TaskPool(connection_pool=rdb.connection_pool)
 
     # A event to flag if it need to exit.
     stop_flag = threading.Event()
@@ -91,6 +92,11 @@ def main(name: str, model_id: str):
     )
 
     # TODO: load model here...
+    model_conf_path = path.join(
+        settings.app_root, "gwmodel/config/yolov8n-det.json")
+    logger.info(f"use model config: [{model_conf_path}]")
+    model = gwmodel.GWModel(config_path=model_conf_path,
+                            device_id=0, platform="PC")
 
     logger.info("start message loop.")
     while not stop_flag.is_set():
@@ -130,12 +136,13 @@ def main(name: str, model_id: str):
             # We here just assume inference need 30 seconds.
             # Then notify inference complete.
             # NOTE: For test we blocking time
-            import os
+            logger.info("start inference")
+            image_path = path.join(settings.app_root, "gwmodel/data/bus.jpg")
+            result = model.run_inference(image_path)
+            task.inference_result = result[0].to_json()
 
-            blocking_time = int(os.environ.get("TEST_BLOCK_TIME", "30"))
-            logger.debug(f"blocking time {blocking_time} secnods.")
-            time.sleep(blocking_time)
-            # FIXME: put inference result into redis.
+            logger.info("inference complete")
+            logger.debug(f"result: {result[0].to_json()}")
 
             # Notify post process that inference complete.
             complete_stream.publish({"task_id": tid})
@@ -159,6 +166,7 @@ def main(name: str, model_id: str):
     # Delete heartbeat to notify runner exit.
     # Set exit flag
     logger.info("message loop stopped, cleanup...")
+    model.release()
     runner.clean_heartbeat()
     runner.is_alive = False
     rdb.close()
