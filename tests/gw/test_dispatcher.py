@@ -3,7 +3,7 @@ from threading import Event, Thread
 
 from redis import Redis
 
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 from gw.dispatcher import Dispatcher
 from gw.runner import Command, Message, Runner, RunnerPool, WorkerStarter
 
@@ -55,10 +55,10 @@ def test_dispatch_task_on_model_already_exists(fake_redis_client):
     evt = Event()
     starter = FakeStarter(fake_redis_client, evt)
 
-    runnerpool = RunnerPool(rdb=fake_redis_client, starter=starter)
+    runnerpool = RunnerPool(connection_pool=fake_redis_client.connection_pool, starter=starter)
     runnerpool.new(model_id=model_id, name=runner_name)
 
-    taskpool = TaskPool(rdb=fake_redis_client)
+    taskpool = TaskPool(connection_pool=fake_redis_client.connection_pool)
     task = taskpool.new(
         model_id=model_id,
         image_url=fake_image_url,
@@ -85,10 +85,10 @@ def test_dispatch_task_wtih_no_running_worker(fake_redis_client):
     evt = Event()
     starter = FakeStarter(fake_redis_client, evt)
 
-    runnerpool = RunnerPool(rdb=fake_redis_client, starter=starter)
+    runnerpool = RunnerPool(connection_pool=fake_redis_client.connection_pool, starter=starter)
     assert runnerpool.count() == 0
 
-    taskpool = TaskPool(rdb=fake_redis_client)
+    taskpool = TaskPool(connection_pool=fake_redis_client.connection_pool)
     task = taskpool.new(
         model_id=model_id,
         image_url=fake_image_url,
@@ -118,10 +118,10 @@ def test_dispatch_task_no_free_slot(fake_redis_client):
     evt = Event()
     starter = FakeStarter(fake_redis_client, evt)
 
-    runnerpool = RunnerPool(rdb=fake_redis_client, starter=starter)
+    runnerpool = RunnerPool(connection_pool=fake_redis_client.connection_pool, starter=starter)
     runnerpool.new(model_id=model_id, name=runner_name)
 
-    taskpool = TaskPool(rdb=fake_redis_client)
+    taskpool = TaskPool(connection_pool=fake_redis_client.connection_pool)
     task = taskpool.new(
         model_id="another_model",
         image_url=fake_image_url,

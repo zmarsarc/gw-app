@@ -1,2 +1,4 @@
 export PYTHONPATH=$(pwd)
+export APP_ROOT=$(pwd)
+
 conda activate ${PYTHONPATH}/.venv

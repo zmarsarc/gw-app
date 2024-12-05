@@ -6,7 +6,7 @@ from loguru import logger
 
 from gw.settings import AppSettings
 from gw.streams import RedisStream
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 
 from . import models
 
@@ -24,56 +24,12 @@ def get_task_pool(req: Request) -> TaskPool:
 def get_task_create_stream(req: Request) -> RedisStream:
     return req.app.state.stream
 
-# def get_filename_extension(filename: str) -> str:
-#     names = filename.split(".")
-#     if len(names) < 2:
-#         return ''
-#     return names[-1]
-
-
-# def check_image_format_by_filename(name: str, conf: gw.AppSettings) -> bool:
-#     extension = get_filename_extension(name)
-#     if extension == '' or extension not in conf.allow_format:
-#         return False
-#     return True
-
-
-# @router.post("/image")
-# async def upload_image(image: UploadFile, req: Request):
-#     rdb = get_redis_connection(req)
-#     conf = get_global_config(req)
-
-#     if not check_image_format_by_filename(image.filename, conf):
-#         logger.warning(
-#             f"image format not support, 'filename' {image.filename}, support {conf.allow_format}")
-#         return models.APIResponse(ok=models.REQUEST_ERR,
-#                                   message=f"image format not support, should be one of {conf.allow_format}")
-
-#     extension = get_filename_extension(image.filename)
-#     uid = str(uuid4())
-#     key = gw.make_image_key(uid, extension)
-#     image_url = gw.make_image_url(uid, extension)
-
-#     data = await image.read()
-#     logger.info(f"upload image '{image.filename}', size {len(data)} bytes.")
-#     await image.close()
-
-#     try:
-#         await rdb.set(key, data, conf.image_lifetime_s)
-#         logger.info(f"write image '{image.filename}' into redis as key {key}, " +
-#                     f"set ttl {conf.image_lifetime_s} seconds, " +
-#                     f"url: {image_url}")
-#     except redis.ConnectionError as e:
-#         logger.error(f"redis connection error, {str(e)}")
-#         return models.APIResponse(ok=models.REQUEST_ERR, message={"message": "redis connect error"})
-
-#     return models.UploadImageResponse(message="image uploaded", url=image_url)
-
 
 @router.post("/task")
 async def create_task(task: models.CreateInferenceTaskRequest, req: Request):
 
     try:
+        # FIXME
         t = get_task_pool(req).new(
             model_id=task.mid,
             image_url=task.image_url,

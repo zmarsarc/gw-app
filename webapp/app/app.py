@@ -6,7 +6,7 @@ from loguru import logger
 
 from gw.settings import get_app_settings
 from gw.streams import Streams
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 
 from . import endpoints
 
@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     app.state.redis_connection = rdb
 
     taskpool = TaskPool(connection_pool=rdb.connection_pool,
-                        ttl=conf.task_lifetime_s)
+                        task_ttl=conf.task_lifetime_s)
     app.state.taskpool = taskpool
 
     stream = Streams(connection_pool=rdb.connection_pool).task_create

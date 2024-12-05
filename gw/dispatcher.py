@@ -4,9 +4,8 @@ from loguru import logger
 from redis import ConnectionPool, Redis
 
 from .runner import RunnerPool
-from .settings import keys
-from .task import Task
-
+from .tasks import Task
+from .redis_keys import RedisKeys
 
 class Dispatcher:
 
@@ -37,11 +36,11 @@ class Dispatcher:
 
     @property
     def runner_num(self) -> int:
-        return int(self.redis_client.get(keys.max_runner_num))
+        return int(self.redis_client.get(RedisKeys.max_runner_num))
 
     @runner_num.setter
     def runner_num(self, num: int):
-        self.redis_client.set(keys.max_runner_num, num)
+        self.redis_client.set(RedisKeys.max_runner_num, num)
         logger.debug(f"set max runner slots number to [{num}]")
 
     def dispatch(self, task: Task):

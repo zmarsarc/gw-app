@@ -5,6 +5,8 @@ from typing import Callable, Dict, List
 import redis
 import redis.typing
 
+from .redis_keys import RedisKeys
+
 
 class StreamMessage:
     def __init__(
@@ -150,20 +152,20 @@ class Streams:
 
     @property
     def task_create(self) -> RedisStream:
-        return RedisStream("task_create::stream::gw", "readgroup::task_create::stream::gw", connection_pool=self._rdb.connection_pool)
+        return RedisStream(RedisKeys.stream_task_create, RedisKeys.stream_readgroup_task_create, connection_pool=self._rdb.connection_pool)
 
     @property
     def task_inference_complete(self) -> RedisStream:
         return RedisStream(
-            stream="task_inference_complete::stream::gw",
-            readgroup="readgroup:task_inference_complete::stream::gw",
+            stream=RedisKeys.stream_inference_complete,
+            readgroup=RedisKeys.stream_readgroup_inference_complete,
             connection_pool=self._rdb.connection_pool
         )
 
     @property
     def task_finish(self) -> RedisStream:
         return RedisStream(
-            stream="task_finish::stream::gw",
-            readgroup="readgroup::task_finish::stream::gw",
+            stream=RedisKeys.stream_postprocess_complete,
+            readgroup=RedisKeys.stream_readgroup_postprocess_complete,
             connection_pool=self._rdb.connection_pool
         )

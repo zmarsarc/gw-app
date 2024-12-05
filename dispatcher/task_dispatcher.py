@@ -9,7 +9,7 @@ from gw.dispatcher import Dispatcher
 from gw.runner import RunnerPool, WorkerStarter
 from gw.settings import get_app_settings
 from gw.streams import Streams
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 from gw.utils import generate_a_random_hex_str
 
 
@@ -28,6 +28,8 @@ def make_signal_handler(evt: threading.Event):
 def main():
 
     settings = get_app_settings()
+    logger.info(
+        f"init dispatcher, app root {settings.app_root}, models root {settings.pt_model_root}")
 
     # Connect redis.
     rdb = redis.Redis(host=settings.redis_host,
@@ -37,15 +39,16 @@ def main():
                 f"use db {settings.redis_db}")
 
     # Connect task pool which use to read task data.
-    taskpool = TaskPool(rdb=rdb,
-                        ttl=settings.task_lifetime_s)
+    taskpool = TaskPool(connection_pool=rdb.connection_pool,
+                        task_ttl=settings.task_lifetime_s)
     logger.info("connect task pool, task lifetime set to ",
                 f"{settings.task_lifetime_s} second(s)")
 
     # Initlize runner pool.
     # We'll use subprocess to start new runner.
     starter = SubprocessStarter()
-    runnerpool = RunnerPool(rdb=rdb, starter=starter)
+    runnerpool = RunnerPool(
+        connection_pool=rdb.connection_pool, starter=starter)
     logger.info(f"connect runner pool, use {type(starter)} as starter.")
 
     # Initlize dispatcher.

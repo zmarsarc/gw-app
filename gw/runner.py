@@ -3,10 +3,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import List, Optional
 
+import redis
 from loguru import logger
 from pydantic import BaseModel
-from redis import ConnectionPool, Redis
 
+from .redis_keys import RedisKeys
 from .streams import RedisStream
 from .utils import generate_a_random_hex_str
 
@@ -18,30 +19,6 @@ class WorkerStarter(ABC):
     @abstractmethod
     def start_runner(self, name: str, model_id: str):
         pass
-
-
-class Keys:
-
-    suffix: str = "gw::runner"
-
-    def __init__(self, name: str) -> None:
-        self._name = name
-
-    @property
-    def base(self) -> str:
-        return f"{self._name}::{self.suffix}"
-
-    @property
-    def heartbeat(self) -> str:
-        return f"{self.base}::heartbeat"
-
-    @property
-    def stream(self) -> str:
-        return f"{self.base}::stream"
-
-    @property
-    def readgroup(self) -> str:
-        return f"{self.base}::readgroup"
 
 
 class Command(StrEnum):
@@ -56,7 +33,7 @@ class Message(BaseModel):
 
 class Runner:
 
-    def __init__(self, rdb: Redis, name: str) -> None:
+    def __init__(self, rdb: redis.Redis, name: str) -> None:
         self._name = name
         self._rdb = rdb
 
@@ -69,67 +46,68 @@ class Runner:
         return self._rdb
 
     @property
-    def keys(self) -> Keys:
-        return Keys(self.name)
-
-    @property
     def model_id(self) -> str:
-        return self.redis_client.hget(self.keys.base, "model_id").decode()
+        return self.redis_client.hget(
+            RedisKeys.runner(self.name), "model_id").decode()
 
     @property
     def ctime(self) -> datetime:
-        resp = self.redis_client.hget(self.keys.base, "ctime")
+        resp = self.redis_client.hget(RedisKeys.runner(self.name), "ctime")
         return datetime.fromisoformat(resp.decode())
 
     @property
     def utime(self) -> datetime:
-        resp = self.redis_client.hget(self.keys.base, "utime")
+        resp = self.redis_client.hget(RedisKeys.runner(self.name), "utime")
         return datetime.fromisoformat(resp.decode())
 
     @utime.setter
     def utime(self, dt: datetime):
-        self.redis_client.hset(self.keys.base, "utime", dt.isoformat())
+        self.redis_client.hset(RedisKeys.runner(
+            self.name), "utime", dt.isoformat())
 
     @property
     def is_busy(self) -> bool:
-        busy = int(self.redis_client.hget(self.keys.base, "busy"))
+        busy = int(self.redis_client.hget(RedisKeys.runner(self.name), "busy"))
         return busy == 1
 
     @is_busy.setter
     def is_busy(self, busy: bool):
-        self.redis_client.hset(self.keys.base, "busy", 1 if busy else 0)
+        self.redis_client.hset(RedisKeys.runner(
+            self.name), "busy", 1 if busy else 0)
 
     @property
     def is_alive(self) -> bool:
-        alive = int(self.redis_client.hget(self.keys.base, "is_alive"))
+        alive = int(self.redis_client.hget(
+            RedisKeys.runner(self.name), "is_alive"))
         return alive == 1
 
     @is_alive.setter
     def is_alive(self, alive: bool):
-        self.redis_client.hset(self.keys.base, "is_alive", 1 if alive else 0)
+        self.redis_client.hset(RedisKeys.runner(
+            self.name), "is_alive", 1 if alive else 0)
 
     @property
     def task(self) -> Optional[str]:
-        resp = self.redis_client.hget(self.keys.base, "task")
+        resp = self.redis_client.hget(RedisKeys.runner(self.name), "task")
         return resp.decode() if resp is not None else None
 
     @task.setter
     def task(self, tid: Optional[str]):
         if tid is None:
-            self.redis_client.hdel(self.keys.base, "task")
+            self.redis_client.hdel(RedisKeys.runner(self.name), "task")
         else:
-            self.redis_client.hset(self.keys.base, "task", tid)
+            self.redis_client.hset(RedisKeys.runner(self.name), "task", tid)
 
     @property
     def heartbeat(self) -> Optional[datetime]:
-        resp = self.redis_client.get(self.keys.heartbeat)
+        resp = self.redis_client.get(RedisKeys.runner_heartbeat(self.name))
         return datetime.fromisoformat(resp.decode()) if resp is not None else None
 
     @property
     def stream(self) -> RedisStream:
         return RedisStream(
-            self.keys.stream,
-            self.keys.readgroup,
+            RedisKeys.runner_stream(self.name),
+            RedisKeys.runner_stream_readgroup(self.name),
             connection_pool=self.redis_client.connection_pool,
         )
 
@@ -141,47 +119,27 @@ class Runner:
             Message(cmd=Command.task, data=tid.encode()).model_dump())
 
     def update_heartbeat(self, dt: datetime, ttl: float):
-        self.redis_client.set(self.keys.heartbeat, dt.isoformat(), ex=ttl)
+        self.redis_client.set(RedisKeys.runner_heartbeat(
+            self.name), dt.isoformat(), ex=ttl)
 
     def clean_heartbeat(self):
-        self.redis_client.delete(self.keys.heartbeat)
+        self.redis_client.delete(RedisKeys.runner_heartbeat(self.name))
 
 
-class RunnerPool:
+class RunnerPool(redis.Redis):
 
-    def __init__(
-        self,
-        host="127.0.0.1",
-        port=6379,
-        db=0,
-        rdb: Redis = None,
-        connection_pool: ConnectionPool = None,
-        starter: WorkerStarter = None,
-    ) -> None:
-        if connection_pool is not None:
-            self._rdb = Redis(connection_pool=connection_pool)
-        elif rdb is not None:
-            self._rdb = rdb
-        elif host and port and db:
-            self._rdb = Redis(host=host, port=port, db=db)
-        else:
-            raise ValueError(
-                "no valid redis connection provided for runner pool.")
-
-        if starter is None:
-            raise ValueError(
-                "runner pool must have a woker starter, but actual none.")
+    def __init__(self, starter: WorkerStarter, **kws):
+        super().__init__(**kws)
         self._starter = starter
 
     def get(self, name: str) -> Optional[Runner]:
-        keys = Keys(name)
 
         # Try find runner key in redis
         # If key in redis, runner may exists but dead.
-        exists = int(self._rdb.exists(keys.base))
+        exists = int(self.exists(RedisKeys.runner(name)))
         if exists == 0:
             return None
-        return Runner(rdb=Redis(connection_pool=self._rdb.connection_pool), name=name)
+        return Runner(rdb=redis.Redis(connection_pool=self.connection_pool), name=name)
 
     def new(self, model_id: str, name: str = None, ctime: datetime = None) -> Runner:
         is_specify_name = name is not None
@@ -204,12 +162,12 @@ class RunnerPool:
                 runner = self.get(name)
 
         # Name ok, make a new runner.
-        runner = Runner(rdb=Redis(connection_pool=self._rdb.connection_pool),
+        runner = Runner(rdb=redis.Redis(connection_pool=self.connection_pool),
                         name=name)
 
         # Write runner metadata.
-        self._rdb.hset(
-            runner.keys.base,
+        self.hset(
+            RedisKeys.runner(runner.name),
             mapping={
                 "name": name,
                 "model_id": model_id,
@@ -222,8 +180,8 @@ class RunnerPool:
         logger.debug(f"runner data, name [{name}], model id [{model_id}]")
 
         # Create runner stream and readgroup for command message.
-        self._rdb.xgroup_create(
-            runner.keys.stream, runner.keys.readgroup, mkstream=True
+        self.xgroup_create(
+            RedisKeys.runner_stream(runner.name), RedisKeys.runner_stream_readgroup(runner.name), mkstream=True
         )
 
         # Start runner worker.
@@ -234,8 +192,10 @@ class RunnerPool:
         r = self.get(name)
         if r is not None:
             r.stop()
-        keys = Keys(name)
-        self._rdb.delete(keys.base, keys.heartbeat, keys.stream)
+        super().delete(
+            RedisKeys.runner(name),
+            RedisKeys.runner_heartbeat(name),
+            RedisKeys.runner_stream(name))
 
     def count(self) -> int:
         return len(self._get_all_runner_keys())
@@ -246,8 +206,8 @@ class RunnerPool:
         runner_keys = self._get_all_runner_keys()
         for k in runner_keys:
             r = Runner(
-                rdb=Redis(connection_pool=self._rdb.connection_pool),
-                name=k.decode().removesuffix(f"::{Keys.suffix}"),
+                rdb=redis.Redis(connection_pool=self.connection_pool),
+                name=k.decode().removesuffix(f"::{RedisKeys.runner_suffix}"),
             )
             result.append(r)
 
@@ -261,4 +221,4 @@ class RunnerPool:
             self.delete(r.name)
 
     def _get_all_runner_keys(self):
-        return self._rdb.keys(f"*::{Keys.suffix}")
+        return self.keys(f"*::{RedisKeys.runner_suffix}")

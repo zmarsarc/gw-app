@@ -8,9 +8,9 @@ from loguru import logger
 
 from gw.settings import get_app_settings
 from gw.streams import Streams
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 from gw.utils import generate_a_random_hex_str
-
+from gw.utils import initlize_logger
 
 def make_signal_handler(evt: threading.Event):
     def handler(signum, frame):
@@ -20,6 +20,8 @@ def make_signal_handler(evt: threading.Event):
 
 def main():
     settings = get_app_settings()
+
+    initlize_logger("notifier")
 
     # Connect redis.
     rdb = redis.Redis(
@@ -33,7 +35,7 @@ def main():
     # Connect task pool.
     taskpool = TaskPool(
         connection_pool=rdb.connection_pool,
-        ttl=settings.task_lifetime_s)
+        task_ttl=settings.task_lifetime_s)
 
     # Connect stream. receive message from task finish stream.
     # Make a unique consumer name.
@@ -45,6 +47,7 @@ def main():
     # Make loop stop flag and register signal handler
     stop_flag = threading.Event()
     signal.signal(signal.SIGTERM, make_signal_handler(stop_flag))
+    signal.signal(signal.SIGINT, make_signal_handler(stop_flag))
 
     logger.info("start event loop.")
     while not stop_flag.is_set():
@@ -73,7 +76,7 @@ def main():
         # TODO: need to fit GW API spec.
         try:
             resp = requests.post(task.callback, json={
-                "result": json.loads(task.result)
+                "result": json.loads(task.postprocess_result)
             })
         except requests.exceptions.InvalidURL as e:
             logger.error(f"invalid url: {e}")

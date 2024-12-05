@@ -1,15 +1,17 @@
+import json
+import os
 import signal
 import threading
-import time
 from datetime import datetime
 
 import redis
 from loguru import logger
 
+from gwmodel import GWModel
 from gw.runner import Command, Message, Runner
 from gw.settings import get_app_settings
 from gw.streams import Streams
-from gw.task import TaskPool
+from gw.tasks import TaskPool
 
 
 def read_name_and_model_id_from_cli():
@@ -37,6 +39,35 @@ def runner_heartbeat(
 
     while not stop_flag.wait(period):
         runner.update_heartbeat(datetime.now(), ttl)
+
+
+def load_model(name: str) -> GWModel:
+    # Find model in model directory.
+    conf = get_app_settings()
+
+    model_dir = os.path.join(conf.pt_model_root, name)
+    logger.debug(f"looking for model directory: {model_dir} ...")
+    if not os.path.exists(model_dir):
+        raise FileNotFoundError()
+    logger.debug("ok")
+
+    model_conf_path = os.path.join(model_dir, f"{name}.json")
+    logger.debug(f"looking for model config file: {model_conf_path} ...")
+    if not os.path.exists(model_conf_path):
+        raise FileNotFoundError()
+    logger.debug("ok")
+
+    with open(model_conf_path, "r") as fp:
+        model_conf = json.load(fp)
+
+    try:
+        model_conf["model"]["path"] = os.path.join(
+            model_dir, model_conf["model"]["path"])
+    except:
+        pass
+
+    model = GWModel(model_conf, 0, "PC")
+    return model
 
 
 def main(name: str, model_id: str):
@@ -67,7 +98,7 @@ def main(name: str, model_id: str):
     logger.info(f"receive runner command use name {consumer}")
 
     # Connect task pool.
-    taskpool = TaskPool(rdb=rdb)
+    taskpool = TaskPool(connection_pool=rdb.connection_pool)
 
     # A event to flag if it need to exit.
     stop_flag = threading.Event()
@@ -90,7 +121,12 @@ def main(name: str, model_id: str):
         + f"update period {settings.runner_heartbeat_update_period_s} second(s)."
     )
 
-    # TODO: load model here...
+    try:
+        model = load_model(model_id)
+        logger.info(f"load model {model_id}")
+    except:
+        # FIXME: handle error
+        raise
 
     logger.info("start message loop.")
     while not stop_flag.is_set():
@@ -130,12 +166,13 @@ def main(name: str, model_id: str):
             # We here just assume inference need 30 seconds.
             # Then notify inference complete.
             # NOTE: For test we blocking time
-            import os
+            logger.info("start inference")
 
-            blocking_time = int(os.environ.get("TEST_BLOCK_TIME", "30"))
-            logger.debug(f"blocking time {blocking_time} secnods.")
-            time.sleep(blocking_time)
-            # FIXME: put inference result into redis.
+            results = model.run_inference(task.image_url)
+            task.inference_result = results[0].to_json()
+
+            logger.info("inference complete")
+            logger.debug(f"result: {results[0].to_json()}")
 
             # Notify post process that inference complete.
             complete_stream.publish({"task_id": tid})
@@ -159,6 +196,7 @@ def main(name: str, model_id: str):
     # Delete heartbeat to notify runner exit.
     # Set exit flag
     logger.info("message loop stopped, cleanup...")
+    model.release()
     runner.clean_heartbeat()
     runner.is_alive = False
     rdb.close()
