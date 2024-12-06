@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
   webapp:
     image: gw/webapp
+    restart: on-failure
     build:
       context: .
       dockerfile: docker/webapp.Dockerfile
@@ -18,8 +17,17 @@ services:
     build:
       context: .
       dockerfile: docker/notifier.Dockerfile
+    restart: on-failure
     environment:
       REDIS_HOST: redis-stack
+    extra_hosts:
+      # Let container can assecc ports served by host use the given host name.
+      # The ip is docker network bridge 'docker0', you can check this by command:
+      # ip addr show docker0
+      # It usually be 172.17.0.1.
+      # You can assume this ip is a network bridge connect internal sub network and host.
+      #
+      - "host.docker.internal:172.17.0.1"
     depends_on:
       - redis-stack
 
@@ -28,9 +36,9 @@ services:
     build:
       context: .
       dockerfile: docker/postprocess.Dockerfile
+    restart: on-failure
     environment:
       REDIS_HOST: redis-stack
-      TEST_BLOCK_TIME: 1
     depends_on:
       - redis-stack
 
@@ -39,14 +47,22 @@ services:
     build:
       context: .
       dockerfile: docker/dispatcher.Dockerfile
+    restart: on-failure
     environment:
       - REDIS_HOST=redis-stack
-      - TEST_BLOCK_TIME=1
+    volumes:
+      # NOTE: change this path to where you put models before boot services.
+      #
+      # For example, if you put you models file in /models,
+      # so it should be /models:/app/models:r
+      #
+      - /path/to/your/models:/app/models:r
     depends_on:
       - redis-stack
 
   redis-stack:
     image: redis:latest
+    restart: on-failure
     ports:
       # Use port 6900 to access redis from host.
       - "6900:6379"

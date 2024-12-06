@@ -1,5 +1,5 @@
-loguru
-pydantic
-pydantic-settings
-redis[hiredis] >= 4.2.0
-requests >= 2.32.0
+requests==2.32.0
+urllib3==2.2.3
+certifi==2024.8.30
+idna==3.10
+charset-normalizer==3.4.0
