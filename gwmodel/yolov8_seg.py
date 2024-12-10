@@ -189,7 +189,7 @@ class YOLOv8_SEG:
             print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
             return results
         else:
-            return self.model(image_file_path)
+            return self.model.predict(image_file_path,imgsz=self.input_shape)
                        
 if __name__ == "__main__":
     import json

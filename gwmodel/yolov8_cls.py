@@ -153,4 +153,4 @@ class YOLOv8_CLS:
             print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
             return postprocessed_data
         else:
-            return self.model(image_file_path)
+            return self.model.predict(image_file_path,imgsz=self.input_shape)
