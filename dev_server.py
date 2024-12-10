@@ -1,10 +1,10 @@
-import json
-import sys
-import threading
+
+from typing import Optional
+
+from argparse import ArgumentParser
 
 
 def parse_cli_arguments():
-    from argparse import ArgumentParser
 
     parser = ArgumentParser()
     parser.add_argument("--host", dest="host", type=str, default="0.0.0.0")
@@ -13,67 +13,31 @@ def parse_cli_arguments():
     return parser.parse_args()
 
 
-class DebugCallbackServer:
+class Parser:
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 9000):
-        try:
-            from fastapi import FastAPI
-            from fastapi.requests import Request
-            from fastapi.responses import Response
-        except ImportError:
-            print(
-                "Imput fastapi not found, please install by command 'pip install fastapi'")
-            sys.exit(1)
+    def __init__(self):
+        self._buf = []
 
-        self.host = host
-        self.port = port
+    def lookahead(self, n: int = 1) -> Optional[str]:
+        while len(self._buf) == 0:
+            self._read_more()
 
-        self.app = FastAPI()
+        if 0 < n <= len(self._buf):
+            return self._buf[n-1]
+        else:
+            return None
 
-        async def callback(req: Request):
-            resp = await req.body()
-            print(json.loads(resp))
-            return Response()
-        self.app.post("/")(callback)
+    def consume(self, n: int = 1):
+        while n >= 0:
+            if len(self._buf) == 0:
+                return
+            self._buf.pop(0)
+            n -= 1
 
-    def run(self):
-        try:
-            import uvicorn
-        except ImportError:
-            print("Import uvicor not found, please install by 'pip install uvicor'")
-
-        t = threading.Thread(target=uvicorn.run, kwargs={
-            "app": self.app,
-            "host": self.host,
-            "port": self.port},
-            daemon=True)
-        t.start()
-
-
-def command_loop():
-
-    try:
-        import requests
-    except ImportError:
-        print("Import package requests not found, try 'pip install requests'")
-        sys.exit(1)
-
-    while True:
-        ipt = input("press enter to send a request to start a task.")
-        
-        requests.post("http://localhost:8000/task", json={
-            "mid": "yolov8n-det",
-            "image_url": "/app/data/bus.jpg",
-            "post_process": "none",
-            "callback": "host.docker.internal:9000/"
-        })
+    def _read_more(self):
+        ipt = input("> ")
+        self._buf.extend(ipt.strip().split())
 
 
 if __name__ == '__main__':
-
-    args = parse_cli_arguments()
-
-    server = DebugCallbackServer(host=args.host, port=args.port)
-    server.run()
-
-    command_loop()
+    pass
