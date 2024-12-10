@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+from loguru import logger
 
 from typing import List, Union
 
@@ -31,7 +32,6 @@ class YOLOv8_SEG:
 
             self.resource.init()
 
-            print(f'model: {self.model_path}')
             self.model = AclLiteModel(self.model_path)
         else:
             from ultralytics import YOLO
@@ -42,7 +42,8 @@ class YOLOv8_SEG:
                self.device = 'cpu'
 
             self.model=YOLO(self.model_path)
-            #self.model.eval()  # Set the model to evaluation mode
+
+        logger.info(f'Model Loaded: {self.model_path}, {self.device}')
 
     def release(self):
         if self.platform == 'ASCEND':
@@ -50,6 +51,8 @@ class YOLOv8_SEG:
             del self.resource
         else:
             pass
+
+        logger.info(f'Model Relase: {self.model_path}, {self.device}')
 
     def preprocess_input(self, im):
         if self.platform == 'ASCEND':
@@ -87,9 +90,9 @@ class YOLOv8_SEG:
         if self.platform == 'ASCEND':
             predictions = self.model.execute([input_data])
             #predictions = np.squeeze(predictions)
-            print(f'0. predictions len: {len(predictions)}, type:{type(predictions)}')
-            for _i,_pred in enumerate(predictions):
-                print(f'0.{_i} pred: {type(_pred)}, {_pred.shape}')
+            #print(f'0. predictions len: {len(predictions)}, type:{type(predictions)}')
+            #for _i,_pred in enumerate(predictions):
+            #    print(f'0.{_i} pred: {type(_pred)}, {_pred.shape}')
         else:
             pass
 
@@ -103,7 +106,7 @@ class YOLOv8_SEG:
             
             """Post-processes predictions and returns a list of Results objects."""
             preds=torch.tensor(predictions[0])
-            print(f'1. preds type: {type(preds)}, shape: {preds.shape}')
+            #print(f'1. preds type: {type(preds)}, shape: {preds.shape}')
             pred = ops.non_max_suppression(
                 preds,
                 self.conf_thres,
@@ -176,17 +179,17 @@ class YOLOv8_SEG:
             import time
             import cv2
 
-            t0 = time.time()
+            #t0 = time.time()
             img0=cv2.imread(image_file_path)
             img1 = self.preprocess_input(img0)
             #print(f'preprocessed_data type: {type(img1)}, shape: {img1.shape}')
-            t1 = time.time()
+            #t1 = time.time()
             predictions = self.predict(img1)
-            t2 = time.time()
+            #t2 = time.time()
             results = self.postprocess_output(predictions, img1, img0, image_file_path)
-            t3 = time.time()
+            #t3 = time.time()
 
-            print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
+            #print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
             return results
         else:
             return self.model.predict(image_file_path,imgsz=self.input_shape)
@@ -199,7 +202,7 @@ if __name__ == "__main__":
     with open(config_path, 'r') as file:
         config = json.load(file) 
 
-    config['platform'] = 'ASCEND'
+    config['platform'] = 'OTHER'
     config['device_id'] = 0
 
     model=YOLOv8_SEG(config)
@@ -207,7 +210,7 @@ if __name__ == "__main__":
     # To test preprocessing and infering
     imgfile='data/bus.jpg'
     results = model.run_inference(imgfile)
-    #print(results)
+    print(results)
     
     # To test postrocessing and infering
     """

@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+from loguru import logger
 
 from typing import List, Union
 
@@ -31,7 +32,6 @@ class YOLOv8_DET:
 
             self.resource.init()
 
-            print(f'model: {self.model_path}')
             self.model = AclLiteModel(self.model_path)
         else:
             from ultralytics import YOLO
@@ -44,12 +44,16 @@ class YOLOv8_DET:
             self.model=YOLO(self.model_path)
             #self.model.eval()  # Set the model to evaluation mode
 
+        logger.info(f'Model Loaded: {self.model_path}, {self.device}')
+
     def release(self):
         if self.platform == 'ASCEND':
             del self.model
             del self.resource
         else:
             pass
+
+        logger.info(f'Model Relase: {self.model_path}, {self.device}')
         
     def preprocess_input(self, im):
         if self.platform == 'ASCEND':
@@ -87,7 +91,7 @@ class YOLOv8_DET:
         if self.platform == 'ASCEND':
             predictions = self.model.execute([input_data])[0]
             #predictions = np.squeeze(predictions)
-            print(f'1. predictions type:{type(predictions)}, shape: {predictions.shape}')
+            #print(f'1. predictions type:{type(predictions)}, shape: {predictions.shape}')
         else:
             pass
 
@@ -100,7 +104,7 @@ class YOLOv8_DET:
             #from results import Results
             """Post-processes predictions and returns a list of Results objects."""
             predictions=torch.tensor(predictions)
-            print(f'2. predictions type: {type(predictions)}, shape: {predictions.shape}')
+            #print(f'2. predictions type: {type(predictions)}, shape: {predictions.shape}')
             pred = ops.non_max_suppression(
                 predictions,
                 self.conf_thres,
@@ -136,17 +140,17 @@ class YOLOv8_DET:
             import time
             import cv2
 
-            t0 = time.time()
+            #t0 = time.time()
             img0=cv2.imread(image_file_path)
             img1 = self.preprocess_input(img0)
             #print(f'preprocessed_data type: {type(img1)}, shape: {img1.shape}')
-            t1 = time.time()
+            #t1 = time.time()
             predictions = self.predict(img1)
-            t2 = time.time()
+            #t2 = time.time()
             results = self.postprocess_output(predictions, img1, img0, image_file_path)
-            t3 = time.time()
+            #t3 = time.time()
 
-            print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
+            #print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
             return results
         else:
             return self.model.predict(image_file_path,imgsz=self.input_shape)
@@ -167,7 +171,7 @@ if __name__ == "__main__":
     # To test preprocessing and infering
     imgfile='data/bus.jpg'
     results = model.run_inference(imgfile)
-    print(results)
+    #print(results)
     
     # To test postrocessing and infering
     """

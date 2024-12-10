@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from loguru import logger
 #from ultralytics.utils import LOGGER
 #from ultralytics.utils.metrics import batch_probiou
 
@@ -296,8 +297,7 @@ def non_max_suppression(
 
         output[xi] = x[i]
         if (time.time() - t) > time_limit:
-            #LOGGER.warning(f"WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded")
-            print(f"WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded")
+            logger.warning(f"WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded")
             break  # time limit exceeded
 
     return output

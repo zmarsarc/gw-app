@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+from loguru import logger
 
 from typing import List, Union
 
@@ -53,6 +54,8 @@ class YOLOv8_CLS:
 
             self.model=YOLO(self.model_path)
             #self.model.eval()  # Set the model to evaluation mode
+            
+        logger.info(f'Model Loaded: {self.model_path}, {self.device}')
 
     def release(self):
         if self.platform == 'ASCEND':
@@ -60,6 +63,8 @@ class YOLOv8_CLS:
             del self.resource
         else:
             pass
+        
+        logger.info(f'Model Relase: {self.model_path}, {self.device}')
 
     def preprocess_input(self, imgfile):
         if self.platform == 'ASCEND':
@@ -88,7 +93,7 @@ class YOLOv8_CLS:
         if self.platform == 'ASCEND':
             prediction = self.model.execute([input_data])[0]
             prediction = np.squeeze(prediction)
-            print(f'predictions type:{type(prediction)}, shape: {prediction.shape}')
+            #print(f'predictions type:{type(prediction)}, shape: {prediction.shape}')
         else:
             pass
 
@@ -108,25 +113,25 @@ class YOLOv8_CLS:
                 result=list(zip(_top_classes, _top_probabilities))
             elif isinstance(self.criteria,float):
                 _thres_index=np.where(prediction >= self.criteria)[0]
-                print(f'_thres_index: {_thres_index}')
+                #print(f'_thres_index: {_thres_index}')
                 _thres_probabilities=prediction[_thres_index]
-                print(f'_thres_probabilities: {_thres_probabilities}')
+                #print(f'_thres_probabilities: {_thres_probabilities}')
                 #_filtered_keys=[self.names[i] for i in _filtered_index]
                 #print(f'filtered_keys: {_filtered_keys}')
                 result=list(zip(_thres_index,_thres_probabilities))
             else:
                 pass
 
-            print(f'result: {result}')
+            #print(f'result: {result}')
 
             if format == 'json':
                 import json
                 json_objs = []
                 
                 for r in result:
-                    print(f'r: {type(r)}, {r}')
+                    #print(f'r: {type(r)}, {r}')
                     _idx, _poss = r
-                    print(f'r1: {_idx}, {_poss}')
+                    #print(f'r1: {_idx}, {_poss}')
                     json_objs.append({
                         "class_id": int(_idx),
                         "probability": float(f'{_poss:.4f}')
@@ -142,15 +147,53 @@ class YOLOv8_CLS:
         if self.platform == 'ASCEND':
             import time
 
-            t0 = time.time()
+            #t0 = time.time()
             preprocessed_data = self.preprocess_input(image_file_path)
-            t1 = time.time()
+            #t1 = time.time()
             prediction = self.predict(preprocessed_data)
-            t2 = time.time()
+            #t2 = time.time()
             postprocessed_data = self.postprocess_output(prediction)
-            t3 = time.time()
+            #t3 = time.time()
 
-            print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
+            #print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
             return postprocessed_data
         else:
             return self.model.predict(image_file_path,imgsz=self.input_shape)
+
+if __name__ == "__main__":
+    import json
+    import time
+    
+    config_path='config/yolov8n-cls.json'
+    with open(config_path, 'r') as file:
+        config = json.load(file) 
+
+    config['platform'] = 'OTHER'
+    config['device_id'] = 0
+
+    model=YOLOv8_CLS(config)
+    
+    # To test preprocessing and infering
+    imgfile='data/bus.jpg'
+    results = model.run_inference(imgfile)
+    #print(results)
+    
+    # To test postrocessing and infering
+    """
+    model.platform="ASCEND"
+
+    t0 = time.time()
+    image_file_path='data/bus.jpg'
+    img0=cv2.imread(image_file_path)
+    img1 = model.preprocess_input(img0)
+    print(f'preprocessed_data type: {type(img1)}, shape: {img1.shape}')
+    t1 = time.time()
+    predicted_data = torch.load('det-preds.pt')
+    results = model.postprocess_output(predicted_data, img1, img0, image_file_path)
+    t2 = time.time()
+    
+    print(f'TIME: {t1-t0:.4f}, {t2-t1:.4f}')
+
+    
+    print('Done')
+    """

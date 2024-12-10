@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+from loguru import logger
 
 from typing import List, Union
 
@@ -16,7 +17,7 @@ class YOLOv8_POSE:
         self.kpt_names = {int(k):v for k,v in config['model']['kpt-names'].items()}
         self.kpt_nc = len(self.kpt_names)
         self.kpt_shape = config['model']['kpt_shape']
-        print(f'kpt shape: {type(self.kpt_shape)}, {self.kpt_shape}')
+        #print(f'kpt shape: {type(self.kpt_shape)}, {self.kpt_shape}')
 
         self.input_shape = (config['model']['height'],config['model']['width']) # shape: h,w
 
@@ -36,7 +37,6 @@ class YOLOv8_POSE:
 
             self.resource.init()
 
-            print(f'model: {self.model_path}')
             self.model = AclLiteModel(self.model_path)
         else:
             from ultralytics import YOLO
@@ -47,7 +47,8 @@ class YOLOv8_POSE:
                self.device = 'cpu'
 
             self.model=YOLO(self.model_path)
-            #self.model.eval()  # Set the model to evaluation mode
+            
+        logger.info(f'Model Loaded: {self.model_path}, {self.device}')
 
     def release(self):
         if self.platform == 'ASCEND':
@@ -55,6 +56,8 @@ class YOLOv8_POSE:
             del self.resource
         else:
             pass
+
+        logger.info(f'Model Released: {self.model_path}, {self.device}')
 
     def preprocess_input(self, im):
         if self.platform == 'ASCEND':
@@ -92,7 +95,7 @@ class YOLOv8_POSE:
         if self.platform == 'ASCEND':
             predictions = self.model.execute([input_data])[0]
             #predictions = np.squeeze(predictions)
-            print(f'1. predictions type:{type(predictions)}, shape: {predictions.shape}')
+            #print(f'1. predictions type:{type(predictions)}, shape: {predictions.shape}')
         else:
             pass
 
@@ -105,7 +108,7 @@ class YOLOv8_POSE:
             #from results import Results
             """Post-processes predictions and returns a list of Results objects."""
             predictions=torch.tensor(predictions)
-            print(f'2. predictions type: {type(predictions)}, shape: {predictions.shape}')
+            #print(f'2. predictions type: {type(predictions)}, shape: {predictions.shape}')
             pred = ops.non_max_suppression(
                 predictions,
                 self.conf_thres,
@@ -119,8 +122,8 @@ class YOLOv8_POSE:
             pred[:, :4] = ops.scale_boxes(img1.shape[2:], pred[:, :4], img0.shape).round()
             pred_kpts = pred[:, 6:].view(len(pred), *self.kpt_shape) if len(pred) else pred[:, 6:]
             pred_kpts = ops.scale_coords(img1.shape[2:], pred_kpts, img0.shape)
-            print(f'3. pred type: {type(pred)}, shape: {pred.shape}')
-            print(f'4. pred_kpts type: {type(pred_kpts)}, shape: {pred_kpts.shape}')
+            #print(f'3. pred type: {type(pred)}, shape: {pred.shape}')
+            #print(f'4. pred_kpts type: {type(pred_kpts)}, shape: {pred_kpts.shape}')
 
             
             if format == 'json':
@@ -160,17 +163,17 @@ class YOLOv8_POSE:
             import time
             import cv2
 
-            t0 = time.time()
+            #t0 = time.time()
             img0=cv2.imread(image_file_path)
             img1 = self.preprocess_input(img0)
             #print(f'preprocessed_data type: {type(img1)}, shape: {img1.shape}')
-            t1 = time.time()
+            #t1 = time.time()
             predictions = self.predict(img1)
-            t2 = time.time()
+            #t2 = time.time()
             results = self.postprocess_output(predictions, img1, img0, image_file_path)
-            t3 = time.time()
+            #t3 = time.time()
 
-            print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
+            #print(f'INFERENCE TIME: {t1-t0:.4f}, {t2-t1:.4f}, {t3-t2:.4f}')
             return results
         else:
             return self.model.predict(image_file_path,imgsz=self.input_shape)

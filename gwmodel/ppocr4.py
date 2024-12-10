@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+from loguru import logger
 
 from typing import List, Union
 from .onnxocr.onnx_paddleocr import ONNXPaddleOcr, sav2Img
@@ -27,12 +28,14 @@ class PADDLE_OCR:
                 self.device = 'cpu'
 
         self.model=ONNXPaddleOcr(det_model_dir=self.det_model, rec_model_dir=self.rec_model, cls_model_dir=self.cls_model, use_angle_cls=(not self.cls_model is None), use_gpu=('cuda' in self.device))
+        logger.info(f'Paddle OCR Model Loaded')
 
     def release(self):
         if self.platform == 'ASCEND':
             pass
         else:
             pass
+        logger.info(f'Paddle OCR Model Released')
 
     def run_inference(self, image_file_path):
         return self.model.ocr(image_file_path, det=self.det_model is not None, rec=self.rec_model is not None, cls=self.cls_model is not None)

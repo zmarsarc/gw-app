@@ -6,6 +6,7 @@ from .utils import str2bool, draw_ocr
 import cv2
 import argparse
 import sys
+from loguru import logger
 
 
 class ONNXPaddleOcr(TextSystem):
@@ -33,7 +34,7 @@ class ONNXPaddleOcr(TextSystem):
             img = cv2.imread(img)
             
         if cls == True and self.use_angle_cls == False:
-            print('Since the angle classifier is not initialized, the angle classifier will not be uesd during the forward process')
+            logger.info('Since the angle classifier is not initialized, the angle classifier will not be uesd during the forward process')
 
         if det and rec:
             ocr_res = []

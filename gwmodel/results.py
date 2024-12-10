@@ -14,6 +14,7 @@ import torch
 
 from .utils import LetterBox, SimpleClass
 import ops
+from loguru import logger
 #from ultralytics.data.augment import LetterBox
 #from ultralytics.utils import LOGGER, SimpleClass, ops
 #from ultralytics.utils.plotting import Annotator, colors, save_one_box
@@ -376,12 +377,10 @@ class Results(SimpleClass):
             file_name (str | pathlib.Path): File name.
         """
         if self.probs is not None:
-            #LOGGER.warning("WARNING ⚠️ Classify task do not support `save_crop`.")
-            print("WARNING ⚠️ Classify task do not support `save_crop`.")
+            logger.warning("WARNING ⚠️ Classify task do not support `save_crop`.")
             return
         if self.obb is not None:
-            #LOGGER.warning("WARNING ⚠️ OBB task do not support `save_crop`.")
-            print("WARNING ⚠️ OBB task do not support `save_crop`.")
+            logger.warning("WARNING ⚠️ OBB task do not support `save_crop`.")
             return
         # for d in self.boxes:
         #     save_one_box(
