@@ -55,8 +55,18 @@ RUN cp /usr/local/Ascend/nnrt/latest/opp/Ascend/aicpu/Ascend-aicpu_syskernels.ta
     mv /home/HwHiAiUser/aicpu_kernels_device/* /home/HwHiAiUser/aicpu_kernels/ && \
     chown -R HwHiAiUser:HwHiAiUser /home/HwHiAiUser/
 
-RUN pip install torch torchvision numpy opencv-python-headless Pillow Cython av paddlepaddle==2.6.2 onnxruntime shapely pyclipper
+# 安装gw项目
+RUN mkdir -p /app
+WORKDIR /app
 
+COPY dispatcher/  .
+COPY gw ./gw
+COPY gwmodel ./gwmodel
+
+RUN pip install -r gw/requirements.txt --no-deps --no-cache-dir
+RUN pip install -r gwmodel/requirements.txt --no-deps --no-cache-dir
+
+# 设置环境
 ENV DDK_PATH=${ASCEND_BASE}/ascend-toolkit/latest
 ENV TOOLCHAIN_HOME=${DDK_PATH}/toolkit
 ENV NPU_HOST_LIB=$DDK_PATH/runtime/lib64/stub
@@ -69,4 +79,5 @@ RUN --mount=type=cache,target=/tmp,from=buildtemp,source=/tmp \
     cp -r /tmp/ACLLite/python ${THIRDPART_PATH}
 
 USER 1000
-CMD bash /home/AscendWork/run.sh
+# CMD bash /home/AscendWork/run.sh
+CMD [ "python", "task_dispatcher.py" ]
