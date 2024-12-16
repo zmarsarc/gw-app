@@ -73,7 +73,6 @@ def main():
             msg.ack()
             continue
 
-        # TODO: need to fit GW API spec.
         try:
             resp = requests.post(task.callback, json={
                 "result": json.loads(task.postprocess_result)
@@ -83,6 +82,14 @@ def main():
             # TODO: task have a invalid callback url, what should do ?
             msg.ack()
             continue
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"send request error: {e}")
+            
+            # Ack this message to prevent retry. We will retry later.
+            msg.ack()
+
+            # TODO: mark this task, it need retry callback.
+            continue
 
         if resp.status_code == 200:
             logger.info(f"call {task.callback} send result.")
@@ -91,6 +98,9 @@ def main():
             # TODO: handle request failed.
             msg.ack()
             pass
+
+        # Every things ok, delete this task and its results.
+        taskpool.delete(task.task_id)
 
     # Stop loop, do cleanup.
     logger.info("recieve stop signal, cleanup...")

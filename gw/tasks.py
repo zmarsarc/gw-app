@@ -86,4 +86,6 @@ class TaskPool(redis.Redis):
         return Task(task_id, connection_pool=self.connection_pool)
 
     def delete(self, task_id: str):
-        super().delete(RedisKeys.task(task_id))
+        super().delete(RedisKeys.task(task_id),
+                       RedisKeys.inference_result(task_id),
+                       RedisKeys.postprocess_result(task_id))
