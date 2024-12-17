@@ -255,11 +255,15 @@ def req_commands(parser: InputParser, srv: DevServer):
     if parser.rest_token_num >= 2:
         model_id = parser.lookahead(1)
         image_path = parser.lookahead(2)
-        address = parser.lookahead(3)
+        callback = parser.lookahead(3)
+        address = parser.lookahead(4)
 
         # if address not given, use default localhost:8000
         if not address:
             address = "localhost:8000"
+
+        if not callback:
+            callback = f"http://host.docker.internal:{srv.port}"
 
         if address and model_id and image_path:
             try:
@@ -268,12 +272,12 @@ def req_commands(parser: InputParser, srv: DevServer):
                     "mid": model_id,
                     "image_url": image_path,
                     "post_process": "none",
-                    "callback": f"http://{srv.host}:{srv.port}",
+                    "callback": callback,
                 }
 
                 # sending request to address.
                 pt.print_formatted_text(f"send request to {address}, body: {req_body}")
-                resp = requests.post(f"http://{address}", json=req_body, timeout=1)
+                resp = requests.post(f"http://{address}/task", json=req_body, timeout=1)
 
                 # handle response, if not ok, print status code.
                 # else print response content, let's just assume it will be a json.
@@ -300,7 +304,7 @@ def req_commands(parser: InputParser, srv: DevServer):
     # Print req command usage message if command invalid.
     pt.print_formatted_text(
         "req usage:\n"
-        + "  req model_id image_path [host address]: send task request to task server.\n"
+        + "  req model_id image_path [callback] [host address]: send task request to task server.\n"
         + "it will use dev server as callback."
     )
     return parser.clean_buf()

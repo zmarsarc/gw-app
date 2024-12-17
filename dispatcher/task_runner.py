@@ -66,7 +66,7 @@ def load_model(name: str) -> GWModel:
     except:
         pass
 
-    model = GWModel(model_conf, 0, "PC")
+    model = GWModel(model_conf, 0)
     return model
 
 

@@ -48,6 +48,7 @@ services:
       context: .
       dockerfile: docker/dispatcher.Dockerfile
     restart: on-failure
+    privileged: true
     environment:
       - REDIS_HOST=redis-stack
     volumes:
@@ -56,7 +57,18 @@ services:
       # For example, if you put you models file in /models,
       # so it should be /models:/app/models:r
       #
-      - /path/to/your/models:/app/models:r
+      - /home/HwHiAiUser/gw-app/models:/app/models:r
+      - /home/HwHiAiUser/gw-app/data:/app/data:r
+
+      # NOTE: Do not change the following lines.
+      #
+      # Mount /dev folder with privilieged mode can give a way to access hardware for container.
+      # Because we need to use accelerator when inference.
+      - /dev:/dev:rw
+      - /usr/local/dcmi:/usr/local/dcmi:rw
+      - /usr/local/bin/npu-smi:/usr/local/bin/npu-smi:rw
+      - /usr/local/Ascend/driver:/usr/local/Ascend/driver:rw
+
     depends_on:
       - redis-stack
 
